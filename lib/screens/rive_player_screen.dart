@@ -1,6 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rive/rive.dart';
+import '../services/settings_service.dart';
+import '../services/sensor_service.dart';
+import '../services/screen_controller.dart';
 
 /// Screen for playing Rive animations using the native Rive package
 /// Supports data binding and view models for full feature compatibility
@@ -24,10 +28,83 @@ class _RivePlayerScreenState extends State<RivePlayerScreen> {
   int _pointerCount = 0;
   double _startY = 0;
 
+  // Proximity dimming
+  final _settings = SettingsService();
+  final _sensorService = SensorService();
+  final _blackOverlayController = BlackOverlayController();
+  bool _proximityDimEnabled = false;
+  bool _proximityUprightOnly = true;
+  bool _isCurrentlyDimmed = false;
+  StreamSubscription<ProximityData>? _proximitySubscription;
+
   @override
   void initState() {
     super.initState();
     _loadRiveFile();
+    _loadProximitySettings();
+  }
+
+  Future<void> _loadProximitySettings() async {
+    final proximityDim = await _settings.getProximityDimEnabled();
+    final proximityUpright = await _settings.getProximityUprightOnly();
+
+    setState(() {
+      _proximityDimEnabled = proximityDim;
+      _proximityUprightOnly = proximityUpright;
+    });
+
+    if (_proximityDimEnabled) {
+      _setupProximityDimming();
+    }
+  }
+
+  Future<void> _setupProximityDimming() async {
+    await _sensorService.startProximity();
+    if (_proximityUprightOnly) {
+      await _sensorService.startAccelerometer();
+    }
+
+    _proximitySubscription?.cancel();
+    _proximitySubscription = _sensorService.proximityStream.listen((data) {
+      _handleProximityChange(data.isNear);
+    });
+  }
+
+  void _handleProximityChange(bool isNear) {
+    if (!_proximityDimEnabled) return;
+
+    // Always allow hiding the overlay (when not near), regardless of orientation
+    if (!isNear && _isCurrentlyDimmed) {
+      _blackOverlayController.hide(duration: const Duration(milliseconds: 200));
+      _isCurrentlyDimmed = false;
+      return;
+    }
+
+    // Check orientation if upright-only mode is enabled (only for showing overlay)
+    if (_proximityUprightOnly && isNear) {
+      final accelData = _sensorService.latestAccelerometer;
+      if (accelData != null && (accelData.isFlat || !accelData.isUpright)) {
+        // Device is flat or not upright, don't show overlay
+        return;
+      }
+    }
+
+    // Show overlay when near and not already dimmed
+    if (isNear && !_isCurrentlyDimmed) {
+      _blackOverlayController.show(duration: const Duration(milliseconds: 200));
+      _isCurrentlyDimmed = true;
+    }
+  }
+
+  void _stopProximityDimming() {
+    _proximitySubscription?.cancel();
+    _proximitySubscription = null;
+    _sensorService.stopProximity();
+    _sensorService.stopAccelerometer();
+    if (_isCurrentlyDimmed) {
+      _blackOverlayController.hide();
+      _isCurrentlyDimmed = false;
+    }
   }
 
   Future<void> _loadRiveFile() async {
@@ -85,6 +162,7 @@ class _RivePlayerScreenState extends State<RivePlayerScreen> {
 
   @override
   void dispose() {
+    _stopProximityDimming();
     _viewModelInstance?.dispose();
     _controller?.dispose();
     _riveFile?.dispose();
@@ -95,7 +173,9 @@ class _RivePlayerScreenState extends State<RivePlayerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: Listener(
+      body: BlackOverlayWidget(
+        controller: _blackOverlayController,
+        child: Listener(
         onPointerDown: (event) {
           _pointerCount++;
           if (_pointerCount == 2) {
@@ -119,6 +199,7 @@ class _RivePlayerScreenState extends State<RivePlayerScreen> {
           }
         },
         child: _buildContent(),
+        ),
       ),
     );
   }

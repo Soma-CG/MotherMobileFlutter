@@ -7,6 +7,12 @@ class SettingsService {
   static const _keyLastFilePath = 'last_file_path';
   static const _keyRecentUrls = 'recent_urls';
 
+  // Sensor settings
+  static const _keyProximityDimEnabled = 'proximity_dim_enabled';
+  static const _keyProximityUprightOnly = 'proximity_upright_only';
+  static const _keyAccelerometerEnabled = 'accelerometer_enabled';
+  static const _keyGyroscopeEnabled = 'gyroscope_enabled';
+
   /// Get the home URL
   Future<String> getHomeUrl() async {
     final prefs = await SharedPreferences.getInstance();
@@ -66,5 +72,56 @@ class SettingsService {
     }
 
     await prefs.setStringList(_keyRecentUrls, recent);
+  }
+
+  // ============ Sensor Settings ============
+
+  /// Get proximity dim enabled setting
+  Future<bool> getProximityDimEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyProximityDimEnabled) ?? false;
+  }
+
+  /// Set proximity dim enabled setting
+  Future<void> setProximityDimEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyProximityDimEnabled, value);
+  }
+
+  /// Get proximity upright-only setting
+  /// When true, proximity dim only works when phone is held upright (to ear)
+  Future<bool> getProximityUprightOnly() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyProximityUprightOnly) ?? true; // Default to true for phones
+  }
+
+  /// Set proximity upright-only setting
+  Future<void> setProximityUprightOnly(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyProximityUprightOnly, value);
+  }
+
+  /// Get accelerometer enabled setting
+  Future<bool> getAccelerometerEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyAccelerometerEnabled) ?? false;
+  }
+
+  /// Set accelerometer enabled setting
+  Future<void> setAccelerometerEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyAccelerometerEnabled, value);
+  }
+
+  /// Get gyroscope enabled setting
+  Future<bool> getGyroscopeEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyGyroscopeEnabled) ?? false;
+  }
+
+  /// Set gyroscope enabled setting
+  Future<void> setGyroscopeEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyGyroscopeEnabled, value);
   }
 }

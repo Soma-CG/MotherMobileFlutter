@@ -26,6 +26,15 @@ dependencies:
   # Keep screen awake
   wakelock_plus: ^1.2.0
 
+  # Sensors (accelerometer, gyroscope, etc.)
+  sensors_plus: ^6.1.1
+
+  # Proximity sensor
+  proximity_sensor: ^1.0.3
+
+  # Screen brightness control
+  screen_brightness: ^1.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

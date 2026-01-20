@@ -5,20 +5,28 @@ import 'package:file_picker/file_picker.dart';
 class SettingsOverlay extends StatefulWidget {
   final String currentUrl;
   final bool keepScreenOn;
+  final bool proximityDimEnabled;
+  final bool proximityUprightOnly;
   final Function(String) onUrlSubmit;
   final Function(String) onFileSelect;
   final VoidCallback onReload;
   final Function(bool) onKeepScreenOnChanged;
+  final Function(bool) onProximityDimChanged;
+  final Function(bool) onProximityUprightOnlyChanged;
   final VoidCallback onClose;
 
   const SettingsOverlay({
     super.key,
     required this.currentUrl,
     required this.keepScreenOn,
+    required this.proximityDimEnabled,
+    required this.proximityUprightOnly,
     required this.onUrlSubmit,
     required this.onFileSelect,
     required this.onReload,
     required this.onKeepScreenOnChanged,
+    required this.onProximityDimChanged,
+    required this.onProximityUprightOnlyChanged,
     required this.onClose,
   });
 
@@ -209,6 +217,52 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
                         activeTrackColor: const Color(0xFFE94560),
                         contentPadding: EdgeInsets.zero,
                       ),
+
+                      const SizedBox(height: 24),
+
+                      // Sensor settings section
+                      Text(
+                        'Sensor Settings',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[400],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Proximity dim toggle
+                      SwitchListTile(
+                        title: const Text(
+                          'Proximity fade to black',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        subtitle: Text(
+                          'Dim screen when sensor is covered',
+                          style: TextStyle(color: Colors.grey[500]),
+                        ),
+                        value: widget.proximityDimEnabled,
+                        onChanged: widget.onProximityDimChanged,
+                        activeTrackColor: const Color(0xFFE94560),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+
+                      // Upright-only option (only shown when proximity is enabled)
+                      if (widget.proximityDimEnabled)
+                        SwitchListTile(
+                          title: const Text(
+                            'Upright only (phone mode)',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          subtitle: Text(
+                            'Only dim when held to ear, not flat on desk',
+                            style: TextStyle(color: Colors.grey[500]),
+                          ),
+                          value: widget.proximityUprightOnly,
+                          onChanged: widget.onProximityUprightOnlyChanged,
+                          activeTrackColor: const Color(0xFFE94560),
+                          contentPadding: EdgeInsets.zero,
+                        ),
 
                       const SizedBox(height: 16),
 
