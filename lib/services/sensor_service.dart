@@ -208,6 +208,7 @@ class SensorService {
   }
 
   /// Start the proximity sensor
+  /// Uses deduplication to avoid redundant events (only fires on state change)
   Future<bool> startProximity() async {
     if (_proximityActive) {
       debugPrint('SensorService: Proximity already active');
@@ -215,12 +216,18 @@ class SensorService {
     }
 
     try {
+      bool? _lastProximityState;
       _proximitySubscription = ProximitySensor.events.listen(
         (int event) {
           // The proximity_sensor package returns:
           // - 1 when something is NEAR
           // - 0 when FAR (nothing close)
           final isNear = event > 0;
+
+          // Deduplicate: only emit when state actually changes
+          if (isNear == _lastProximityState) return;
+          _lastProximityState = isNear;
+
           final data = ProximityData(isNear: isNear, rawValue: event);
           _latestProximity = data;
           _proximityController.add(data);
@@ -230,7 +237,7 @@ class SensorService {
         },
       );
       _proximityActive = true;
-      debugPrint('Proximity sensor started');
+      debugPrint('Proximity sensor started (deduplicated)');
       return true;
     } catch (e) {
       debugPrint('Error starting proximity sensor: $e');

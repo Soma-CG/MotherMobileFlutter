@@ -21,19 +21,20 @@ dependencies:
   shared_preferences: ^2.3.0
 
   # File picker for local files
-  file_picker: ^8.0.0
+  file_picker: ^10.3.8
 
   # Keep screen awake
   wakelock_plus: ^1.2.0
 
   # Sensors (accelerometer, gyroscope, etc.)
-  sensors_plus: ^6.1.1
+  sensors_plus: ^7.0.0
 
   # Proximity sensor
   proximity_sensor: ^1.0.3
 
   # Screen brightness control
-  screen_brightness: ^1.0.1
+  screen_brightness: ^2.1.7
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 import '../widgets/settings_overlay.dart';
+import '../widgets/file_browser_dialog.dart';
 import '../services/settings_service.dart';
 import '../services/sensor_service.dart';
 import '../services/screen_controller.dart';
@@ -22,8 +23,11 @@ class _BrowserScreenState extends State<BrowserScreen> {
   final _settings = SettingsService();
   final _sensorService = SensorService();
   final _blackOverlayController = BlackOverlayController();
+  final _focusNode = FocusNode();
 
   bool _showSettings = false;
+  bool _showFileBrowser = false;
+  bool _inRivePlayer = false; // true while Rive player route is active
   String _currentUrl = 'about:blank';
   bool _keepScreenOn = false;
 
@@ -31,6 +35,11 @@ class _BrowserScreenState extends State<BrowserScreen> {
   bool _proximityDimEnabled = false;
   bool _proximityUprightOnly = true;
   bool _isCurrentlyDimmed = false;
+
+  // Rive sensor settings
+  bool _riveAccelerometerEnabled = false;
+  bool _riveGyroscopeEnabled = false;
+  bool _riveProximityEnabled = false;
 
 
   // For two-finger gesture detection
@@ -71,11 +80,17 @@ class _BrowserScreenState extends State<BrowserScreen> {
     final keepOn = await _settings.getKeepScreenOn();
     final proximityDim = await _settings.getProximityDimEnabled();
     final proximityUpright = await _settings.getProximityUprightOnly();
+    final riveAccel = await _settings.getRiveAccelerometerEnabled();
+    final riveGyro = await _settings.getRiveGyroscopeEnabled();
+    final riveProx = await _settings.getRiveProximityEnabled();
 
     setState(() {
       _keepScreenOn = keepOn;
       _proximityDimEnabled = proximityDim;
       _proximityUprightOnly = proximityUpright;
+      _riveAccelerometerEnabled = riveAccel;
+      _riveGyroscopeEnabled = riveGyro;
+      _riveProximityEnabled = riveProx;
     });
 
     // Set up proximity dimming if enabled
@@ -175,12 +190,29 @@ class _BrowserScreenState extends State<BrowserScreen> {
   void _loadLocalFile(String path) {
     // Check if it's a Rive file
     if (path.toLowerCase().endsWith('.riv')) {
+      setState(() => _inRivePlayer = true);
+      // Pause WebView to free resources while Rive player is active
+      _controller.runJavaScript(
+        'document.querySelectorAll("video, audio").forEach(e => e.pause()); '
+        'if(typeof window.__mmPaused === "undefined") { window.__mmPaused = true; }',
+      );
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => RivePlayerScreen(filePath: path),
         ),
-      );
+      ).then((_) {
+        // Resume WebView and re-open the file browser
+        _controller.runJavaScript(
+          'document.querySelectorAll("video, audio").forEach(e => e.play()); '
+          'window.__mmPaused = false;',
+        );
+        setState(() {
+          _inRivePlayer = false;
+          _showSettings = false;
+          _showFileBrowser = true;
+        });
+      });
     } else {
       // Load HTML file in WebView
       _controller.loadFile(path);
@@ -228,6 +260,38 @@ class _BrowserScreenState extends State<BrowserScreen> {
     }
   }
 
+  void _onRiveAccelerometerChanged(bool value) {
+    setState(() => _riveAccelerometerEnabled = value);
+    _settings.setRiveAccelerometerEnabled(value);
+  }
+
+  void _onRiveGyroscopeChanged(bool value) {
+    setState(() => _riveGyroscopeEnabled = value);
+    _settings.setRiveGyroscopeEnabled(value);
+  }
+
+  void _onRiveProximityChanged(bool value) {
+    setState(() => _riveProximityEnabled = value);
+    _settings.setRiveProximityEnabled(value);
+  }
+
+  void _openFileBrowser() {
+    setState(() {
+      _showSettings = false;
+      _showFileBrowser = true;
+    });
+  }
+
+  void _closeFileBrowser() {
+    setState(() => _showFileBrowser = false);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  }
+
+  void _onFileBrowserSelect(String path) {
+    _closeFileBrowser();
+    _loadLocalFile(path);
+  }
+
   void _reload() {
     _controller.reload();
     setState(() => _showSettings = false);
@@ -237,15 +301,104 @@ class _BrowserScreenState extends State<BrowserScreen> {
   @override
   void dispose() {
     _stopProximityDimming();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  // Track select button for long-press detection
+  DateTime? _selectPressStart;
+  static const _longPressDuration = Duration(milliseconds: 800);
+
+  /// Handle keyboard and remote control input
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    // Don't handle any keys when file browser is open - it has its own FocusScope
+    if (_showFileBrowser) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+
+    // Track long-press on Select/Enter for opening settings (TV remote center button)
+    if (key == LogicalKeyboardKey.select ||
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.gameButtonA) {
+      if (event is KeyDownEvent) {
+        _selectPressStart ??= DateTime.now();
+      } else if (event is KeyUpEvent) {
+        if (_selectPressStart != null) {
+          final pressDuration = DateTime.now().difference(_selectPressStart!);
+          _selectPressStart = null;
+
+          // Long press opens/closes settings
+          if (pressDuration >= _longPressDuration && !_showSettings) {
+            setState(() => _showSettings = true);
+            return KeyEventResult.handled;
+          }
+        }
+      }
+      // Don't consume short presses - let them work normally
+      return KeyEventResult.ignored;
+    }
+
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    // Menu button (TV remote) or M key (keyboard) - toggle settings
+    if (key == LogicalKeyboardKey.contextMenu ||
+        key == LogicalKeyboardKey.keyM ||
+        key == LogicalKeyboardKey.f1) {
+      setState(() => _showSettings = !_showSettings);
+      if (!_showSettings) {
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+      }
+      return KeyEventResult.handled;
+    }
+
+    // Back button or Escape - close file browser or settings if open
+    if (key == LogicalKeyboardKey.goBack ||
+        key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.browserBack) {
+      if (_showFileBrowser) {
+        _closeFileBrowser();
+        return KeyEventResult.handled;
+      }
+      if (_showSettings) {
+        setState(() => _showSettings = false);
+        SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        return KeyEventResult.handled;
+      }
+      // Let system handle back if nothing open
+      return KeyEventResult.ignored;
+    }
+
+    // R key - reload page
+    if (key == LogicalKeyboardKey.keyR && !_showSettings) {
+      _reload();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: BlackOverlayWidget(
-        controller: _blackOverlayController,
-        child: Listener(
+    return PopScope(
+      canPop: !_showFileBrowser && !_showSettings && !_inRivePlayer,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        // System back was blocked - handle it ourselves
+        if (_showFileBrowser) {
+          _closeFileBrowser();
+        } else if (_showSettings) {
+          setState(() => _showSettings = false);
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        }
+      },
+      child: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        onKeyEvent: _handleKeyEvent,
+        child: Scaffold(
+        body: BlackOverlayWidget(
+          controller: _blackOverlayController,
+          child: Listener(
           // Track pointer count for two-finger detection
           onPointerDown: (event) {
             _pointerCount++;
@@ -283,21 +436,37 @@ class _BrowserScreenState extends State<BrowserScreen> {
                   keepScreenOn: _keepScreenOn,
                   proximityDimEnabled: _proximityDimEnabled,
                   proximityUprightOnly: _proximityUprightOnly,
+                  riveAccelerometerEnabled: _riveAccelerometerEnabled,
+                  riveGyroscopeEnabled: _riveGyroscopeEnabled,
+                  riveProximityEnabled: _riveProximityEnabled,
                   onUrlSubmit: _loadUrl,
                   onFileSelect: _loadLocalFile,
                   onReload: _reload,
                   onKeepScreenOnChanged: _onKeepScreenOnChanged,
                   onProximityDimChanged: _onProximityDimChanged,
                   onProximityUprightOnlyChanged: _onProximityUprightOnlyChanged,
+                  onRiveAccelerometerChanged: _onRiveAccelerometerChanged,
+                  onRiveGyroscopeChanged: _onRiveGyroscopeChanged,
+                  onRiveProximityChanged: _onRiveProximityChanged,
+                  onBrowseLocalFiles: _openFileBrowser,
                   onClose: () {
                     setState(() => _showSettings = false);
                     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
                   },
                 ),
+
+              // File browser dialog
+              if (_showFileBrowser)
+                FileBrowserDialog(
+                  onFileSelected: _onFileBrowserSelect,
+                  onClose: _closeFileBrowser,
+                ),
             ],
           ),
         ),
       ),
+    ),
+    ),
     );
   }
 }

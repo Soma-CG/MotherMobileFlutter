@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:file_picker/file_picker.dart';
 
 /// Settings overlay that slides in from top
@@ -7,13 +8,20 @@ class SettingsOverlay extends StatefulWidget {
   final bool keepScreenOn;
   final bool proximityDimEnabled;
   final bool proximityUprightOnly;
+  final bool riveAccelerometerEnabled;
+  final bool riveGyroscopeEnabled;
+  final bool riveProximityEnabled;
   final Function(String) onUrlSubmit;
   final Function(String) onFileSelect;
   final VoidCallback onReload;
   final Function(bool) onKeepScreenOnChanged;
   final Function(bool) onProximityDimChanged;
   final Function(bool) onProximityUprightOnlyChanged;
+  final Function(bool) onRiveAccelerometerChanged;
+  final Function(bool) onRiveGyroscopeChanged;
+  final Function(bool) onRiveProximityChanged;
   final VoidCallback onClose;
+  final VoidCallback onBrowseLocalFiles;
 
   const SettingsOverlay({
     super.key,
@@ -21,13 +29,20 @@ class SettingsOverlay extends StatefulWidget {
     required this.keepScreenOn,
     required this.proximityDimEnabled,
     required this.proximityUprightOnly,
+    required this.riveAccelerometerEnabled,
+    required this.riveGyroscopeEnabled,
+    required this.riveProximityEnabled,
     required this.onUrlSubmit,
     required this.onFileSelect,
     required this.onReload,
     required this.onKeepScreenOnChanged,
     required this.onProximityDimChanged,
     required this.onProximityUprightOnlyChanged,
+    required this.onRiveAccelerometerChanged,
+    required this.onRiveGyroscopeChanged,
+    required this.onRiveProximityChanged,
     required this.onClose,
+    required this.onBrowseLocalFiles,
   });
 
   @override
@@ -36,6 +51,7 @@ class SettingsOverlay extends StatefulWidget {
 
 class _SettingsOverlayState extends State<SettingsOverlay> {
   late TextEditingController _urlController;
+  final _focusNode = FocusNode();
 
   @override
   void initState() {
@@ -48,7 +64,25 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
   @override
   void dispose() {
     _urlController.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  /// Handle keyboard input for closing overlay
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+
+    // Escape or Back button closes the overlay
+    if (key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.goBack ||
+        key == LogicalKeyboardKey.browserBack) {
+      widget.onClose();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   Future<void> _pickFile() async {
@@ -86,20 +120,23 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onClose,
-      child: Container(
-        color: Colors.black54,
-        child: SafeArea(
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: GestureDetector(
-              onTap: () {}, // Prevent close when tapping settings panel
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: const Color(0xE6121212),
+    return Focus(
+      focusNode: _focusNode,
+      onKeyEvent: _handleKeyEvent,
+      child: GestureDetector(
+        onTap: widget.onClose,
+        child: Container(
+          color: Colors.black54,
+          child: SafeArea(
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: GestureDetector(
+                onTap: () {}, // Prevent close when tapping settings panel
+                child: Container(
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xE6121212),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                     color: Colors.grey.shade800,
@@ -264,6 +301,75 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
                           contentPadding: EdgeInsets.zero,
                         ),
 
+                      const SizedBox(height: 24),
+
+                      // Rive sensor input section
+                      Text(
+                        'Rive Sensor Input',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey[400],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Feed sensor data to Rive state machine inputs',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Rive accelerometer toggle
+                      SwitchListTile(
+                        title: const Text(
+                          'Accelerometer',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        subtitle: Text(
+                          'accelX, accelY, accelZ, isFlat, isUpright',
+                          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        ),
+                        value: widget.riveAccelerometerEnabled,
+                        onChanged: widget.onRiveAccelerometerChanged,
+                        activeTrackColor: const Color(0xFFE94560),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+
+                      // Rive gyroscope toggle
+                      SwitchListTile(
+                        title: const Text(
+                          'Gyroscope',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        subtitle: Text(
+                          'gyroX, gyroY, gyroZ',
+                          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        ),
+                        value: widget.riveGyroscopeEnabled,
+                        onChanged: widget.onRiveGyroscopeChanged,
+                        activeTrackColor: const Color(0xFFE94560),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+
+                      // Rive proximity toggle
+                      SwitchListTile(
+                        title: const Text(
+                          'Proximity',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                        subtitle: Text(
+                          'isNear (boolean)',
+                          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        ),
+                        value: widget.riveProximityEnabled,
+                        onChanged: widget.onRiveProximityChanged,
+                        activeTrackColor: const Color(0xFFE94560),
+                        contentPadding: EdgeInsets.zero,
+                      ),
+
                       const SizedBox(height: 16),
 
                       // Local files section
@@ -277,14 +383,28 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
                       ),
                       const SizedBox(height: 8),
 
-                      // File picker button
+                      // File picker button (uses system picker - works on phones)
                       OutlinedButton.icon(
                         onPressed: _pickFile,
-                        icon: const Icon(Icons.folder_open),
-                        label: const Text('Open local html or Rive file'),
+                        icon: const Icon(Icons.file_open),
+                        label: const Text('System file picker'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.white,
                           side: BorderSide(color: Colors.grey[600]!),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+
+                      const SizedBox(height: 8),
+
+                      // Built-in file browser (works on TV/Chromecast)
+                      ElevatedButton.icon(
+                        onPressed: widget.onBrowseLocalFiles,
+                        icon: const Icon(Icons.folder),
+                        label: const Text('Browse /sdcard (TV/Chromecast)'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFE94560),
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
@@ -309,6 +429,7 @@ class _SettingsOverlayState extends State<SettingsOverlay> {
           ),
         ),
       ),
+    ),
     );
   }
 }

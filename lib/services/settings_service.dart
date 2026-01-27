@@ -13,6 +13,11 @@ class SettingsService {
   static const _keyAccelerometerEnabled = 'accelerometer_enabled';
   static const _keyGyroscopeEnabled = 'gyroscope_enabled';
 
+  // Rive sensor settings
+  static const _keyRiveAccelerometerEnabled = 'rive_accelerometer_enabled';
+  static const _keyRiveGyroscopeEnabled = 'rive_gyroscope_enabled';
+  static const _keyRiveProximityEnabled = 'rive_proximity_enabled';
+
   /// Get the home URL
   Future<String> getHomeUrl() async {
     final prefs = await SharedPreferences.getInstance();
@@ -123,5 +128,43 @@ class SettingsService {
   Future<void> setGyroscopeEnabled(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_keyGyroscopeEnabled, value);
+  }
+
+  // ============ Rive Sensor Settings ============
+
+  /// Get Rive accelerometer enabled setting
+  Future<bool> getRiveAccelerometerEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyRiveAccelerometerEnabled) ?? false;
+  }
+
+  /// Set Rive accelerometer enabled setting
+  Future<void> setRiveAccelerometerEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyRiveAccelerometerEnabled, value);
+  }
+
+  /// Get Rive gyroscope enabled setting
+  Future<bool> getRiveGyroscopeEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyRiveGyroscopeEnabled) ?? false;
+  }
+
+  /// Set Rive gyroscope enabled setting
+  Future<void> setRiveGyroscopeEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyRiveGyroscopeEnabled, value);
+  }
+
+  /// Get Rive proximity enabled setting
+  Future<bool> getRiveProximityEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_keyRiveProximityEnabled) ?? false;
+  }
+
+  /// Set Rive proximity enabled setting
+  Future<void> setRiveProximityEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_keyRiveProximityEnabled, value);
   }
 }

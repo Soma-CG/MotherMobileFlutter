@@ -17,7 +17,7 @@ class ScreenController {
   /// Get current screen brightness (0.0 to 1.0)
   Future<double> getBrightness() async {
     try {
-      return await _screenBrightness.current;
+      return await _screenBrightness.application;
     } catch (e) {
       debugPrint('Error getting brightness: $e');
       return 0.5;
@@ -27,7 +27,7 @@ class ScreenController {
   /// Set screen brightness (0.0 to 1.0)
   Future<bool> setBrightness(double brightness) async {
     try {
-      await _screenBrightness.setScreenBrightness(brightness.clamp(0.0, 1.0));
+      await _screenBrightness.setApplicationScreenBrightness(brightness.clamp(0.0, 1.0));
       return true;
     } catch (e) {
       debugPrint('Error setting brightness: $e');
@@ -38,7 +38,7 @@ class ScreenController {
   /// Reset brightness to system default
   Future<bool> resetBrightness() async {
     try {
-      await _screenBrightness.resetScreenBrightness();
+      await _screenBrightness.resetApplicationScreenBrightness();
       return true;
     } catch (e) {
       debugPrint('Error resetting brightness: $e');
