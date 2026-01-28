@@ -203,6 +203,11 @@ class _RivePlayerScreenState extends State<RivePlayerScreen> {
         _isLoading = false;
       });
 
+      // Ensure our focus node has focus for keyboard/remote input
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _focusNode.requestFocus();
+      });
+
       // Discover and bind sensor properties from ViewModel (Data Binding API)
       if (vmi != null) {
         _discoverAndBindSensorProperties(vmi);
@@ -359,11 +364,13 @@ class _RivePlayerScreenState extends State<RivePlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      focusNode: _focusNode,
-      autofocus: true,
-      onKeyEvent: _handleKeyEvent,
-      child: Scaffold(
+    return PopScope(
+      canPop: true, // Allow normal pop - this ensures Navigator.pop works
+      child: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        onKeyEvent: _handleKeyEvent,
+        child: Scaffold(
         backgroundColor: Colors.black,
         body: BlackOverlayWidget(
           controller: _blackOverlayController,
@@ -393,6 +400,7 @@ class _RivePlayerScreenState extends State<RivePlayerScreen> {
             child: _buildContent(),
           ),
         ),
+      ),
       ),
     );
   }

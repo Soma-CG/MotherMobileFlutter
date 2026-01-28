@@ -182,6 +182,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
       _showSettings = false;
       _currentUrl = finalUrl;
     });
+    _focusNode.requestFocus();
 
     // Re-enable immersive mode
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
@@ -222,6 +223,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
 
     // Re-enable immersive mode
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    _focusNode.requestFocus();
   }
 
   void _onKeepScreenOnChanged(bool value) {
@@ -296,6 +298,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
     _controller.reload();
     setState(() => _showSettings = false);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    // Re-focus the main focus node so long-press detection continues to work
+    _focusNode.requestFocus();
   }
 
   @override
@@ -362,6 +366,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
       if (_showSettings) {
         setState(() => _showSettings = false);
         SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        _focusNode.requestFocus();
         return KeyEventResult.handled;
       }
       // Let system handle back if nothing open
@@ -452,6 +457,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
                   onClose: () {
                     setState(() => _showSettings = false);
                     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+                    _focusNode.requestFocus();
                   },
                 ),
 
